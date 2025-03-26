@@ -1,0 +1,46 @@
+public class BatchTransactionProcessor {
+    private final ExecutorService executor;
+    private final BankingService bankingService;
+    
+    public BatchTransactionProcessor(int threadCount, BankingService bankingService) {
+        this.executor = Executors.newFixedThreadPool(threadCount);
+        this.bankingService = bankingService;
+    }
+    
+    public void processTransactionsConcurrently(List<Transaction> transactions) {
+        List<Callable<Void>> tasks = transactions.stream()
+            .map(txn -> (Callable<Void>) () -> {
+                bankingService.processTransaction(txn);
+                return null;
+            })
+            .collect(Collectors.toList());
+        
+        try {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Transaction processing interrupted", e);
+        }
+    }
+    
+    public Map<Transaction, Future<String>> processWithResults(List<Transaction> transactions) {
+        TransactionProcessor processor = new TransactionProcessor();
+        return transactions.stream()
+            .collect(Collectors.toMap(
+                Function.identity(),
+                txn -> executor.submit(() -> processor.processTransaction(txn))
+            ));
+    }
+    
+    public void shutdown() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+}
