@@ -1,0 +1,35 @@
+public class BankingReports {
+    private final List<Transaction> transactions;
+    
+    public BankingReports(List<Transaction> transactions) {
+        this.transactions = transactions;
+    }
+    
+    public List<Transaction> getTransactionsBetween(LocalDate start, LocalDate end) {
+        return transactions.stream()
+            .filter(t -> !t.timestamp().toLocalDate().isBefore(start))
+            .filter(t -> !t.timestamp().toLocalDate().isAfter(end))
+            .sorted(Comparator.comparing(Transaction::timestamp))
+            .collect(Collectors.toList());
+    }
+    
+    public Map<DayOfWeek, BigDecimal> getDailyTransactionTotals() {
+        return transactions.stream()
+            .collect(Collectors.groupingBy(
+                t -> t.timestamp().getDayOfWeek(),
+                Collectors.reducing(
+                    BigDecimal.ZERO,
+                    Transaction::amount,
+                    BigDecimal::add
+                )
+            ));
+    }
+    
+    public Map<Month, Long> getMonthlyTransactionCount() {
+        return transactions.stream()
+            .collect(Collectors.groupingBy(
+                t -> t.timestamp().getMonth(),
+                Collectors.counting()
+            ));
+    }
+}
