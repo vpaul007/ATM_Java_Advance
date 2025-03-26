@@ -1,0 +1,36 @@
+public class BankingMessages {
+    private final ResourceBundle messages;
+    
+    public BankingMessages(Locale locale) {
+        this.messages = ResourceBundle.getBundle("BankingMessages", locale);
+    }
+    
+    public String getWelcomeMessage() {
+        return messages.getString("welcome");
+    }
+    
+    public String getTransactionMessage(TransactionType type) {
+        return switch (type) {
+            case DEPOSIT -> messages.getString("transaction.deposit");
+            case WITHDRAWAL -> messages.getString("transaction.withdrawal");
+            case TRANSFER -> messages.getString("transaction.transfer");
+            case INTEREST -> messages.getString("transaction.interest");
+            case FEE -> messages.getString("transaction.fee");
+        };
+    }
+    
+    public String getAccountTypeMessage(AccountType type) {
+        return messages.getString("account." + type.name().toLowerCase());
+    }
+    
+    public String formatCurrency(BigDecimal amount, Locale locale) {
+        NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(locale);
+        return currencyFormat.format(amount);
+    }
+    
+    public String formatDate(LocalDate date, Locale locale) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
+            .withLocale(locale);
+        return date.format(formatter);
+    }
+}
