@@ -1,0 +1,36 @@
+public class TransactionProcessor {
+    public String processTransaction(Transaction transaction) {
+        return switch (transaction.type()) {
+            case DEPOSIT -> processDeposit(transaction);
+            case WITHDRAWAL -> processWithdrawal(transaction);
+            case TRANSFER -> processTransfer(transaction);
+            case INTEREST -> String.format("Interest of %s applied", transaction.amount());
+            case FEE -> String.format("Fee of %s charged", transaction.amount());
+        };
+    }
+    
+    public BigDecimal calculateFee(Account account) {
+        return switch (account.type()) {
+            case CHECKING -> account.balance().compareTo(new BigDecimal("1000")) < 0 ? 
+                new BigDecimal("5.00") : BigDecimal.ZERO;
+            case SAVINGS -> BigDecimal.ZERO;
+            case CREDIT -> new BigDecimal("10.00");
+            case INVESTMENT -> new BigDecimal("15.00");
+        };
+    }
+    
+    // Pattern matching for instanceof (Java 16+)
+    public String handleOperation(BankingOperation operation) {
+        if (operation instanceof AccountOperation accOp) {
+            return String.format("Processing account operation: %s for amount %s", 
+                accOp.getClass().getSimpleName(), accOp.getAmount());
+        } else if (operation instanceof CustomerOperation custOp) {
+            return String.format("Processing customer operation: %s for customer %s", 
+                custOp.getClass().getSimpleName(), custOp.getCustomer().name());
+        } else if (operation instanceof ReportOperation reportOp) {
+            return String.format("Generating report from %s to %s", 
+                reportOp.getFromDate(), reportOp.getToDate());
+        }
+        return "Unknown operation";
+    }
+}
