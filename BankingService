@@ -1,0 +1,89 @@
+public class BankingService {
+    private final Map<String, Customer> customers = new ConcurrentHashMap<>();
+    private final Map<String, Account> accounts = new ConcurrentHashMap<>();
+    private final List<Transaction> transactions = new CopyOnWriteArrayList<>();
+    
+    // Consumer example for transaction processing
+    private final Consumer<Transaction> processTransaction = transaction -> {
+        switch (transaction.type()) {
+            case DEPOSIT -> accounts.computeIfPresent(transaction.accountNumber(), 
+                (k, v) -> new Account(k, v.customerId(), v.type(), 
+                    v.balance().add(transaction.amount()), v.openedDate()));
+            case WITHDRAWAL, FEE -> accounts.computeIfPresent(transaction.accountNumber(), 
+                (k, v) -> new Account(k, v.customerId(), v.type(), 
+                    v.balance().subtract(transaction.amount()), v.openedDate()));
+            case TRANSFER -> {
+                // Handle transfer logic
+            }
+            case INTEREST -> accounts.computeIfPresent(transaction.accountNumber(), 
+                (k, v) -> new Account(k, v.customerId(), v.type(), 
+                    v.balance().add(transaction.amount()), v.openedDate()));
+        }
+        transactions.add(transaction);
+    };
+    
+    // Predicate example for account filters
+    private final Predicate<Account> isHighValueAccount = 
+        account -> account.balance().compareTo(new BigDecimal("10000")) > 0;
+    
+    // Supplier example for ID generation
+    private final Supplier<String> transactionIdSupplier = () -> 
+        "TXN" + Instant.now().toEpochMilli() + ThreadLocalRandom.current().nextInt(1000, 9999);
+    
+    // Function example for currency conversion
+    private final Function<BigDecimal, BigDecimal> usdToEurConverter = 
+        usd -> usd.multiply(new BigDecimal("0.85"));
+    
+    public void deposit(String accountNumber, BigDecimal amount) {
+        String txnId = transactionIdSupplier.get();
+        Transaction deposit = new Transaction(txnId, accountNumber, 
+            TransactionType.DEPOSIT, amount, LocalDateTime.now(), "Cash deposit");
+        processTransaction.accept(deposit);
+    }
+    
+    public List<Account> getHighValueAccounts() {
+        return accounts.values().stream()
+            .filter(isHighValueAccount)
+            .sorted(Comparator.comparing(Account::balance).reversed())
+            .collect(Collectors.toList());
+    }
+    
+    public Map<AccountType, List<Account>> getAccountsByType() {
+        return accounts.values().stream()
+            .collect(Collectors.groupingBy(Account::type));
+    }
+    
+    public Map<Boolean, List<Account>> partitionAccountsByBalance(BigDecimal threshold) {
+        return accounts.values().stream()
+            .collect(Collectors.partitioningBy(
+                account -> account.balance().compareTo(threshold) > 0));
+    }
+    
+    public Optional<Account> findAccountWithMaxBalance() {
+        return accounts.values().stream()
+            .max(Comparator.comparing(Account::balance));
+    }
+    
+    public boolean hasAnyNegativeBalance() {
+        return accounts.values().stream()
+            .anyMatch(account -> account.balance().compareTo(BigDecimal.ZERO) < 0);
+    }
+    
+    public void applyInterestToAllAccounts(double interestRate) {
+        accounts.values().parallelStream()
+            .filter(account -> account.type() == AccountType.SAVINGS)
+            .forEach(account -> {
+                BigDecimal interest = account.balance()
+                    .multiply(new BigDecimal(interestRate / 100));
+                Transaction interestTxn = new Transaction(
+                    transactionIdSupplier.get(),
+                    account.accountNumber(),
+                    TransactionType.INTEREST,
+                    interest,
+                    LocalDateTime.now(),
+                    "Interest credit"
+                );
+                processTransaction.accept(interestTxn);
+            });
+    }
+}
