@@ -1,0 +1,46 @@
+public class BankingApp {
+    public static void main(String[] args) {
+        try {
+            // Initialize services
+            BankingService bankingService = new BankingService();
+            BankingDataStorage storage = new BankingDataStorage("bank_data");
+            BankingReports reports = new BankingReports(bankingService.getTransactions());
+            
+            // Load initial data
+            Map<String, Customer> customers = storage.loadCustomers();
+            customers.values().forEach(bankingService::addCustomer);
+            
+            // Create sample accounts
+            bankingService.openAccount("CUST001", AccountType.SAVINGS, new BigDecimal("5000"));
+            bankingService.openAccount("CUST002", AccountType.CHECKING, new BigDecimal("2500"));
+            
+            // Process transactions
+            bankingService.deposit("ACC001", new BigDecimal("1000"));
+            bankingService.withdraw("ACC002", new BigDecimal("500"));
+            
+            // Generate reports
+            List<Transaction> monthlyTransactions = reports.getTransactionsBetween(
+                LocalDate.now().minusMonths(1), LocalDate.now());
+            
+            // Concurrent processing
+            BatchTransactionProcessor processor = new BatchTransactionProcessor(4, bankingService);
+            processor.processTransactionsConcurrently(monthlyTransactions);
+            
+            // Localization example
+            BankingMessages englishMessages = new BankingMessages(Locale.US);
+            BankingMessages frenchMessages = new BankingMessages(Locale.FRANCE);
+            
+            System.out.println(englishMessages.getWelcomeMessage());
+            System.out.println(frenchMessages.getWelcomeMessage());
+            
+            // Save data
+            storage.saveCustomers(bankingService.getCustomers());
+            
+            // Shutdown concurrent processors
+            processor.shutdown();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
