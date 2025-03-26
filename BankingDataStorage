@@ -1,0 +1,59 @@
+public class BankingDataStorage {
+    private final Path dataDirectory;
+    
+    public BankingDataStorage(String directoryPath) throws IOException {
+        this.dataDirectory = Paths.get(directoryPath);
+        Files.createDirectories(dataDirectory);
+    }
+    
+    public void saveCustomers(Map<String, Customer> customers) throws IOException {
+        Path customerFile = dataDirectory.resolve("customers.dat");
+        try (BufferedWriter writer = Files.newBufferedWriter(customerFile, StandardOpenOption.CREATE)) {
+            customers.values().forEach(customer -> {
+                try {
+                    writer.write(String.format("%s|%s|%s|%s%n", 
+                        customer.customerId(), customer.name(), 
+                        customer.dob(), customer.address()));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        }
+    }
+    
+    public Map<String, Customer> loadCustomers() throws IOException {
+        Path customerFile = dataDirectory.resolve("customers.dat");
+        if (!Files.exists(customerFile)) {
+            return new HashMap<>();
+        }
+        
+        try (Stream<String> lines = Files.lines(customerFile)) {
+            return lines.map(line -> line.split("\\|"))
+                .filter(parts -> parts.length == 4)
+                .collect(Collectors.toMap(
+                    parts -> parts[0],
+                    parts -> new Customer(
+                        parts[0], 
+                        parts[1], 
+                        LocalDate.parse(parts[2]), 
+                        parts[3]
+                    )
+                ));
+        }
+    }
+    
+    public void exportTransactionsToCsv(List<Transaction> transactions, Path outputPath) throws IOException {
+        List<String> lines = transactions.stream()
+            .map(txn -> String.join(",",
+                txn.transactionId(),
+                txn.accountNumber(),
+                txn.type().name(),
+                txn.amount().toString(),
+                txn.timestamp().toString(),
+                "\"" + txn.description() + "\""))
+            .collect(Collectors.toList());
+        
+        lines.add(0, "TransactionID,AccountNumber,Type,Amount,Timestamp,Description");
+        Files.write(outputPath, lines, StandardOpenOption.CREATE);
+    }
+}
